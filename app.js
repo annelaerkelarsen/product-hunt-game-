@@ -530,6 +530,25 @@ async function startNativeBarcodeDetector() {
     video.srcObject = videoStream;
     await video.play();
 
+    // Add debug canvas overlay for visualizing detection
+    const canvas = document.createElement('canvas');
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '3';
+
+    video.addEventListener('loadedmetadata', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+    });
+
+    const readerDiv = document.getElementById('reader');
+    readerDiv.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
     // Check capabilities and settings
     const videoTrack = videoStream.getVideoTracks()[0];
     const capabilities = videoTrack.getCapabilities();
@@ -573,15 +592,40 @@ async function startNativeBarcodeDetector() {
     let lastBarcode = null;
 
     // FASTER DETECTION: 100ms = 10 FPS (was 200ms = 5 FPS)
+    let noDetectionCount = 0;
     detectionInterval = setInterval(async () => {
         if (!isScanning) return;
 
         try {
             const barcodes = await barcodeDetector.detect(video);
 
+            // Clear canvas
+            if (ctx && canvas.width > 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
             if (barcodes.length > 0) {
                 const barcode = barcodes[0];
-                console.log('Detected:', barcode.format, barcode.rawValue);
+                noDetectionCount = 0;
+                console.log('✓ Detected:', barcode.format, barcode.rawValue, 'BoundingBox:', barcode.boundingBox);
+
+                // Draw detected barcode region
+                if (ctx && barcode.boundingBox) {
+                    const box = barcode.boundingBox;
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                    // Draw corner points
+                    if (barcode.cornerPoints) {
+                        ctx.fillStyle = '#00ff00';
+                        barcode.cornerPoints.forEach(point => {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                            ctx.fill();
+                        });
+                    }
+                }
 
                 // Visual and haptic feedback
                 updateScanFeedback('Barcode found - hold steady!', 'found');
@@ -615,10 +659,16 @@ async function startNativeBarcodeDetector() {
                 }
             } else {
                 // Reset if no barcode detected
+                noDetectionCount++;
                 if (detectionCount > 0) {
                     detectionCount = 0;
                     lastBarcode = null;
                     updateScanFeedback('Searching for barcode...', 'searching');
+                }
+
+                // Debug feedback every 20 attempts (~2 seconds)
+                if (noDetectionCount % 20 === 0) {
+                    console.log('⚠️ No barcode detected - Try: rotate, flatten, move closer, better lighting');
                 }
             }
         } catch (err) {
