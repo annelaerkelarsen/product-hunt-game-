@@ -9,6 +9,10 @@ let useLocalStorage = true; // Will try Firebase, fallback to localStorage
 // Try to load Firebase
 let database = null;
 let firebaseLoaded = false;
+let fbRef = null;
+let fbSet = null;
+let fbOnValue = null;
+let fbRemove = null;
 
 async function initFirebase() {
     try {
@@ -29,10 +33,10 @@ async function initFirebase() {
         const app = initializeApp(firebaseConfig);
         database = getDatabase(app);
 
-        window.firebaseRef = ref;
-        window.firebaseSet = set;
-        window.firebaseOnValue = onValue;
-        window.firebaseRemove = remove;
+        fbRef = ref;
+        fbSet = set;
+        fbOnValue = onValue;
+        fbRemove = remove;
 
         useLocalStorage = false;
         firebaseLoaded = true;
@@ -116,13 +120,12 @@ async function joinGame() {
         } else {
             console.log('Using Firebase mode');
             // Firebase mode
-            const { ref, set } = window;
-            await set(ref(database, 'players/' + playerId), currentPlayer);
+            await fbSet(fbRef(database, 'players/' + playerId), currentPlayer);
             showGameScreen();
             listenToPlayers();
 
             window.addEventListener('beforeunload', () => {
-                window.firebaseRemove(ref(database, 'players/' + playerId));
+                fbRemove(fbRef(database, 'players/' + playerId));
             });
         }
     } catch (error) {
@@ -169,9 +172,8 @@ function updateLocalLeaderboard() {
 
 // Firebase listeners
 function listenToPlayers() {
-    const { ref, onValue } = window;
-    const playersRef = ref(database, 'players');
-    onValue(playersRef, (snapshot) => {
+    const playersRef = fbRef(database, 'players');
+    fbOnValue(playersRef, (snapshot) => {
         const players = snapshot.val();
         if (!players) return;
 
@@ -408,9 +410,8 @@ function addProductToCollection(product) {
             updateLocalLeaderboard();
         }
     } else {
-        const { ref, onValue, set } = window;
-        const playerRef = ref(database, 'players/' + playerId);
-        onValue(playerRef, (snapshot) => {
+        const playerRef = fbRef(database, 'players/' + playerId);
+        fbOnValue(playerRef, (snapshot) => {
             const playerData = snapshot.val();
             if (!playerData) return;
 
@@ -422,7 +423,7 @@ function addProductToCollection(product) {
                 products[product.barcode] = product;
                 const score = Object.keys(products).length;
 
-                set(ref(database, 'players/' + playerId), {
+                fbSet(fbRef(database, 'players/' + playerId), {
                     ...playerData,
                     products: products,
                     score: score
