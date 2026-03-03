@@ -187,21 +187,37 @@ const newGameBtn = document.getElementById('new-game-btn');
 const manualBarcodeInput = document.getElementById('manual-barcode');
 const manualSubmitBtn = document.getElementById('manual-submit-btn');
 
+// Helper to update visible status
+function updateStatus(message, color = '#fff3cd') {
+    const statusEl = document.getElementById('status-text');
+    const debugEl = document.getElementById('debug-status');
+    if (statusEl) statusEl.textContent = message;
+    if (debugEl) debugEl.style.background = color;
+    console.log('STATUS:', message);
+}
+
+updateStatus('Module script loaded', '#d4edda');
+
 // Initialize Firebase (non-blocking)
 initFirebase().catch(err => {
     console.warn('Firebase init failed (expected if not configured):', err);
+    updateStatus('Firebase skipped (OK)', '#d4edda');
 });
 
-console.log('🚀 App loaded - Product Hunt v2.2.0');
+console.log('🚀 App loaded - Product Hunt v2.2.1');
 console.log('Join button:', joinBtn);
 console.log('Player name input:', playerNameInput);
+
+updateStatus('Checking DOM elements...', '#fff3cd');
 
 // Event listeners - attach these IMMEDIATELY, don't wait for Firebase
 if (joinBtn) {
     joinBtn.addEventListener('click', joinGame);
     console.log('✓ Join button listener attached');
+    updateStatus('✓ Ready! Click Join Game', '#d4edda');
 } else {
     console.error('❌ Join button not found!');
+    updateStatus('ERROR: Join button not found', '#f8d7da');
 }
 
 if (playerNameInput) {
