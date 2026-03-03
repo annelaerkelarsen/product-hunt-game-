@@ -68,6 +68,8 @@ const collectionCountEl = document.getElementById('collection-count');
 const scanStatusEl = document.getElementById('scan-status');
 const winnerNameEl = document.getElementById('winner-name');
 const newGameBtn = document.getElementById('new-game-btn');
+const manualBarcodeInput = document.getElementById('manual-barcode');
+const manualSubmitBtn = document.getElementById('manual-submit-btn');
 
 // Initialize Firebase
 initFirebase();
@@ -84,6 +86,19 @@ newGameBtn.addEventListener('click', () => {
         localStorage.clear();
     }
     location.reload();
+});
+manualSubmitBtn.addEventListener('click', () => {
+    const barcode = manualBarcodeInput.value.trim();
+    if (barcode) {
+        console.log('Manual barcode entry:', barcode);
+        manualBarcodeInput.value = '';
+        lookupProduct(barcode);
+    }
+});
+manualBarcodeInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        manualSubmitBtn.click();
+    }
 });
 
 // Join game
@@ -377,10 +392,13 @@ async function startNativeBarcodeDetector() {
 
         try {
             const barcodes = await barcodeDetector.detect(video);
-            if (barcodes.length > 0 && isScanning) {
-                isScanning = false;
-                stopNativeBarcodeDetector();
-                onScanSuccess(barcodes[0].rawValue);
+            if (barcodes.length > 0) {
+                console.log('Detected barcodes:', barcodes.map(b => `${b.format}: ${b.rawValue}`));
+                if (isScanning) {
+                    isScanning = false;
+                    stopNativeBarcodeDetector();
+                    onScanSuccess(barcodes[0].rawValue);
+                }
             }
         } catch (err) {
             console.error('Detection error:', err);
