@@ -21,7 +21,7 @@
             </header>
             <div class="card">
                 <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
-                <button id="join-btn" class="primary-btn">Join Game</button>
+                <button id="join-btn" class="primary-btn" onclick="alert('Button clicked! JS works. Name: ' + document.getElementById('player-name').value)">Join Game</button>
 
                 <!-- API Key Configuration -->
                 <details class="api-settings">
@@ -144,6 +144,13 @@
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <!-- Test script to verify JavaScript is working -->
+    <script>
+        console.log('✓ Basic JavaScript is working');
+        console.log('Page loaded at:', new Date().toLocaleTimeString());
+    </script>
+
     <script type="module" src="app.js?v=210"></script>
 </body>
 </html>
