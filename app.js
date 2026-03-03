@@ -187,19 +187,30 @@ const newGameBtn = document.getElementById('new-game-btn');
 const manualBarcodeInput = document.getElementById('manual-barcode');
 const manualSubmitBtn = document.getElementById('manual-submit-btn');
 
-// Initialize Firebase
-initFirebase();
+// Initialize Firebase (non-blocking)
+initFirebase().catch(err => {
+    console.warn('Firebase init failed (expected if not configured):', err);
+});
 
-console.log('🚀 App loaded - Product Hunt v2.1.0');
+console.log('🚀 App loaded - Product Hunt v2.2.0');
 console.log('Join button:', joinBtn);
 console.log('Player name input:', playerNameInput);
 
-// Event listeners
-joinBtn.addEventListener('click', joinGame);
-console.log('✓ Event listeners attached');
-playerNameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') joinGame();
-});
+// Event listeners - attach these IMMEDIATELY, don't wait for Firebase
+if (joinBtn) {
+    joinBtn.addEventListener('click', joinGame);
+    console.log('✓ Join button listener attached');
+} else {
+    console.error('❌ Join button not found!');
+}
+
+if (playerNameInput) {
+    playerNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') joinGame();
+    });
+    console.log('✓ Enter key listener attached');
+}
+
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', resetScanner);
 newGameBtn.addEventListener('click', () => {
