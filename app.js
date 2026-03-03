@@ -297,9 +297,12 @@ async function startScanner() {
         html5QrCode = new Html5Qrcode("reader");
 
         const config = {
-            fps: 10,
-            qrbox: { width: 300, height: 180 },
+            fps: 15,
+            qrbox: { width: 250, height: 120 },
             // Support all barcode formats
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
         };
 
         await html5QrCode.start(
@@ -373,6 +376,7 @@ async function lookupProduct(barcode) {
     scanStatusEl.textContent = '';
 
     try {
+        // Try Open Food Facts first
         const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
         const data = await response.json();
 
@@ -385,20 +389,47 @@ async function lookupProduct(barcode) {
             };
             addProductToCollection(product);
         } else {
-            const product = {
-                barcode: barcode,
-                name: 'Product #' + barcode.slice(-6),
-                brand: '',
-                image: null
-            };
-            addProductToCollection(product);
+            // Fallback: Try UPCitemdb
+            try {
+                const upcResponse = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
+                const upcData = await upcResponse.json();
+
+                if (upcData.items && upcData.items.length > 0) {
+                    const item = upcData.items[0];
+                    const product = {
+                        barcode: barcode,
+                        name: item.title || 'Unknown Product',
+                        brand: item.brand || '',
+                        image: (item.images && item.images.length > 0) ? item.images[0] : null
+                    };
+                    addProductToCollection(product);
+                } else {
+                    // No product found in either database
+                    const product = {
+                        barcode: barcode,
+                        name: 'Unknown Product',
+                        brand: 'Barcode: ' + barcode,
+                        image: null
+                    };
+                    addProductToCollection(product);
+                }
+            } catch (upcErr) {
+                console.error('UPC lookup error:', upcErr);
+                const product = {
+                    barcode: barcode,
+                    name: 'Unknown Product',
+                    brand: 'Barcode: ' + barcode,
+                    image: null
+                };
+                addProductToCollection(product);
+            }
         }
     } catch (err) {
         console.error('Error looking up product:', err);
         const product = {
             barcode: barcode,
-            name: 'Product #' + barcode.slice(-6),
-            brand: '',
+            name: 'Unknown Product',
+            brand: 'Barcode: ' + barcode,
             image: null
         };
         addProductToCollection(product);
