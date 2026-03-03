@@ -15,15 +15,15 @@ async function initFirebase() {
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
         const { getDatabase, ref, set, onValue, remove } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
 
-        // REPLACE THIS CONFIG WITH YOUR FIREBASE CONFIG
+        // Your Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyBvK8xM5_5h8L3pQ7Z3J6yH8K8F8wZq4xM",
-            authDomain: "product-hunt-game.firebaseapp.com",
-            databaseURL: "https://product-hunt-game-default-rtdb.firebaseio.com",
-            projectId: "product-hunt-game",
-            storageBucket: "product-hunt-game.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abc123def456"
+            apiKey: "AIzaSyCQG8tgmTPc-fVxRVC58K6SzpJLslNs1Ro",
+            authDomain: "product-hunt-e4fe2.firebaseapp.com",
+            databaseURL: "https://product-hunt-e4fe2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "product-hunt-e4fe2",
+            storageBucket: "product-hunt-e4fe2.firebasestorage.app",
+            messagingSenderId: "384788937211",
+            appId: "1:384788937211:web:c86616187e223d7647335e"
         };
 
         const app = initializeApp(firebaseConfig);
