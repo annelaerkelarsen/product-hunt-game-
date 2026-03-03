@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Barcode Scanner</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Barcode Scanner</h1>
+        </header>
+
+        <div id="scanner-container">
+            <div id="reader"></div>
+            <button id="start-btn" class="primary-btn">Start Scanner</button>
+        </div>
+
+        <div id="result-container" class="hidden">
+            <div id="product-info">
+                <div id="product-image"></div>
+                <div id="product-details">
+                    <h2 id="product-name">Loading...</h2>
+                    <p id="product-brand"></p>
+                    <p id="product-barcode"></p>
+                </div>
+            </div>
+            <button id="scan-again-btn" class="secondary-btn">Scan Another</button>
+        </div>
+
+        <div id="error-message" class="hidden"></div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

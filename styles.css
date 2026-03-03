@@ -1,0 +1,145 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+h1 {
+    color: white;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+#scanner-container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+#reader {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.primary-btn {
+    background: #667eea;
+    color: white;
+}
+
+.primary-btn:active {
+    transform: scale(0.98);
+    background: #5568d3;
+}
+
+.secondary-btn {
+    background: #f0f0f0;
+    color: #333;
+    margin-top: 16px;
+}
+
+.secondary-btn:active {
+    transform: scale(0.98);
+    background: #e0e0e0;
+}
+
+#result-container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+#product-info {
+    margin-bottom: 20px;
+}
+
+#product-image {
+    width: 100%;
+    height: 200px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#product-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+#product-image.no-image::before {
+    content: "📦";
+    font-size: 64px;
+    opacity: 0.3;
+}
+
+#product-details h2 {
+    font-size: 22px;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+#product-details p {
+    color: #666;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+#error-message {
+    background: #ff4757;
+    color: white;
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 16px;
+    }
+
+    h1 {
+        font-size: 24px;
+    }
+}
