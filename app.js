@@ -427,10 +427,15 @@ async function startScanner() {
 
         // Try native BarcodeDetector first (better performance)
         if ('BarcodeDetector' in window) {
-            console.log('Using native BarcodeDetector');
+            console.log('✓ Using native BarcodeDetector (best performance)');
+            showScannerInfo('✓ Using advanced scanner', 'success');
+            updateScanFeedback('Starting camera...', 'searching');
             await startNativeBarcodeDetector();
         } else {
-            console.log('Falling back to html5-qrcode');
+            console.log('⚠️ BarcodeDetector not available in this browser');
+            console.log('Falling back to html5-qrcode (slower but compatible)');
+            showScannerInfo('⚠️ Using fallback scanner (Ecosia may have limited support)', 'warning');
+            updateScanFeedback('Loading scanner...', 'searching');
             html5QrCode = new Html5Qrcode("reader");
 
             const config = {
@@ -688,6 +693,22 @@ function updateScanFeedback(message, state) {
 
     if (scanBox) {
         scanBox.className = 'scan-box ' + state;
+    }
+}
+
+function showScannerInfo(message, type) {
+    const info = document.getElementById('scanner-info');
+    if (info) {
+        info.textContent = message;
+        info.className = 'scanner-info ' + type;
+        info.style.display = 'block';
+
+        // Auto-hide success message after 3 seconds
+        if (type === 'success') {
+            setTimeout(() => {
+                info.style.display = 'none';
+            }, 3000);
+        }
     }
 }
 
