@@ -1,26 +1,49 @@
-// Firebase configuration
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getDatabase, ref, set, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
-
-const firebaseConfig = {
-    apiKey: "AIzaSyBvK8xM5_5h8L3pQ7Z3J6yH8K8F8wZq4xM",
-    authDomain: "product-hunt-game.firebaseapp.com",
-    databaseURL: "https://product-hunt-game-default-rtdb.firebaseio.com",
-    projectId: "product-hunt-game",
-    storageBucket: "product-hunt-game.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abc123def456"
-};
-
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
 // Game state
 let currentPlayer = null;
 let playerId = null;
 let html5QrCode = null;
 let isScanning = false;
 const WINNING_SCORE = 3;
+let useLocalStorage = true; // Will try Firebase, fallback to localStorage
+
+// Try to load Firebase
+let database = null;
+let firebaseLoaded = false;
+
+async function initFirebase() {
+    try {
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+        const { getDatabase, ref, set, onValue, remove } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js');
+
+        // REPLACE THIS CONFIG WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvK8xM5_5h8L3pQ7Z3J6yH8K8F8wZq4xM",
+            authDomain: "product-hunt-game.firebaseapp.com",
+            databaseURL: "https://product-hunt-game-default-rtdb.firebaseio.com",
+            projectId: "product-hunt-game",
+            storageBucket: "product-hunt-game.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123def456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        database = getDatabase(app);
+
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseOnValue = onValue;
+        window.firebaseRemove = remove;
+
+        useLocalStorage = false;
+        firebaseLoaded = true;
+        console.log('✅ Firebase connected - Multiplayer enabled');
+    } catch (error) {
+        console.warn('⚠️ Firebase not configured - Using localStorage (single-player mode)');
+        console.log('To enable multiplayer: See FIREBASE_SETUP.md');
+        useLocalStorage = true;
+        firebaseLoaded = false;
+    }
+}
 
 // DOM elements
 const welcomeScreen = document.getElementById('welcome-screen');
@@ -42,6 +65,9 @@ const scanStatusEl = document.getElementById('scan-status');
 const winnerNameEl = document.getElementById('winner-name');
 const newGameBtn = document.getElementById('new-game-btn');
 
+// Initialize Firebase
+initFirebase();
+
 // Event listeners
 joinBtn.addEventListener('click', joinGame);
 playerNameInput.addEventListener('keypress', (e) => {
@@ -49,10 +75,15 @@ playerNameInput.addEventListener('keypress', (e) => {
 });
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', resetScanner);
-newGameBtn.addEventListener('click', () => location.reload());
+newGameBtn.addEventListener('click', () => {
+    if (useLocalStorage) {
+        localStorage.clear();
+    }
+    location.reload();
+});
 
 // Join game
-function joinGame() {
+async function joinGame() {
     const name = playerNameInput.value.trim();
     if (!name) {
         alert('Please enter your name');
@@ -68,25 +99,68 @@ function joinGame() {
         joinedAt: Date.now()
     };
 
-    // Save player to Firebase
-    set(ref(database, 'players/' + playerId), currentPlayer);
+    if (useLocalStorage) {
+        // LocalStorage mode
+        saveToLocalStorage();
+        showGameScreen();
+        updateLocalLeaderboard();
 
-    // Show game screen
-    welcomeScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
-    currentPlayerEl.textContent = name;
+        // Simulate checking for updates
+        setInterval(() => {
+            updateLocalLeaderboard();
+        }, 1000);
+    } else {
+        // Firebase mode
+        const { ref, set } = window;
+        await set(ref(database, 'players/' + playerId), currentPlayer);
+        showGameScreen();
+        listenToPlayers();
 
-    // Listen for player updates
-    listenToPlayers();
-
-    // Clean up on disconnect
-    window.addEventListener('beforeunload', () => {
-        remove(ref(database, 'players/' + playerId));
-    });
+        window.addEventListener('beforeunload', () => {
+            window.firebaseRemove(ref(database, 'players/' + playerId));
+        });
+    }
 }
 
-// Listen to all players
+function showGameScreen() {
+    welcomeScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    currentPlayerEl.textContent = currentPlayer.name;
+
+    if (useLocalStorage) {
+        // Add indicator for local mode
+        currentPlayerEl.innerHTML = currentPlayer.name + ' <span style="font-size: 12px; opacity: 0.7;">(Local Mode)</span>';
+    }
+}
+
+// LocalStorage functions
+function saveToLocalStorage() {
+    const players = getLocalPlayers();
+    players[playerId] = currentPlayer;
+    localStorage.setItem('productHuntPlayers', JSON.stringify(players));
+}
+
+function getLocalPlayers() {
+    const data = localStorage.getItem('productHuntPlayers');
+    return data ? JSON.parse(data) : {};
+}
+
+function updateLocalLeaderboard() {
+    const players = getLocalPlayers();
+    updateLeaderboard(players);
+    checkForWinner(players);
+
+    if (players[playerId]) {
+        const score = players[playerId].score || 0;
+        playerScoreEl.textContent = score + '/3';
+        collectionCountEl.textContent = score;
+        updateMyCollection(players[playerId].products || {});
+    }
+}
+
+// Firebase listeners
 function listenToPlayers() {
+    const { ref, onValue } = window;
     const playersRef = ref(database, 'players');
     onValue(playersRef, (snapshot) => {
         const players = snapshot.val();
@@ -95,7 +169,6 @@ function listenToPlayers() {
         updateLeaderboard(players);
         checkForWinner(players);
 
-        // Update current player score
         if (players[playerId]) {
             const score = players[playerId].score || 0;
             playerScoreEl.textContent = score + '/3';
@@ -178,7 +251,7 @@ function updateMyCollection(products) {
 async function startScanner() {
     try {
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            showError('Camera access requires HTTPS. Please use: https://dreamy-manatee-4cac82.netlify.app');
+            showError('Camera access requires HTTPS.');
             return;
         }
 
@@ -226,7 +299,7 @@ async function startScanner() {
         } else if (err.name === 'NotFoundError') {
             errorMsg += 'No camera found on this device.';
         } else if (err.message.includes('secure')) {
-            errorMsg += 'Make sure you are using HTTPS (https://dreamy-manatee-4cac82.netlify.app)';
+            errorMsg += 'Make sure you are using HTTPS';
         } else {
             errorMsg += 'Try: Settings > Safari > Camera = Ask';
         }
@@ -287,7 +360,7 @@ async function lookupProduct(barcode) {
         } else {
             const product = {
                 barcode: barcode,
-                name: 'Unknown Product',
+                name: 'Product #' + barcode.slice(-6),
                 brand: '',
                 image: null
             };
@@ -297,7 +370,7 @@ async function lookupProduct(barcode) {
         console.error('Error looking up product:', err);
         const product = {
             barcode: barcode,
-            name: 'Unknown Product',
+            name: 'Product #' + barcode.slice(-6),
             brand: '',
             image: null
         };
@@ -307,30 +380,49 @@ async function lookupProduct(barcode) {
 
 // Add product to collection
 function addProductToCollection(product) {
-    const playerRef = ref(database, 'players/' + playerId);
-    onValue(playerRef, (snapshot) => {
-        const playerData = snapshot.val();
-        if (!playerData) return;
-
+    if (useLocalStorage) {
+        const players = getLocalPlayers();
+        const playerData = players[playerId];
         const products = playerData.products || {};
 
-        // Check if already scanned
         if (products[product.barcode]) {
             displayProduct(product, true);
         } else {
-            // Add new product
             products[product.barcode] = product;
-            const score = Object.keys(products).length;
+            playerData.products = products;
+            playerData.score = Object.keys(products).length;
+            players[playerId] = playerData;
+            currentPlayer = playerData;
 
-            set(ref(database, 'players/' + playerId), {
-                ...playerData,
-                products: products,
-                score: score
-            });
-
+            localStorage.setItem('productHuntPlayers', JSON.stringify(players));
             displayProduct(product, false);
+            updateLocalLeaderboard();
         }
-    }, { onlyOnce: true });
+    } else {
+        const { ref, onValue, set } = window;
+        const playerRef = ref(database, 'players/' + playerId);
+        onValue(playerRef, (snapshot) => {
+            const playerData = snapshot.val();
+            if (!playerData) return;
+
+            const products = playerData.products || {};
+
+            if (products[product.barcode]) {
+                displayProduct(product, true);
+            } else {
+                products[product.barcode] = product;
+                const score = Object.keys(products).length;
+
+                set(ref(database, 'players/' + playerId), {
+                    ...playerData,
+                    products: products,
+                    score: score
+                });
+
+                displayProduct(product, false);
+            }
+        }, { onlyOnce: true });
+    }
 }
 
 // Display product
