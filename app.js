@@ -322,10 +322,13 @@ async function startScanner() {
 }
 
 function onScanSuccess(decodedText, decodedResult) {
+    console.log('Barcode detected:', decodedText, 'isScanning:', isScanning);
     if (isScanning) {
         isScanning = false;
         stopScanner();
         lookupProduct(decodedText);
+    } else {
+        console.warn('Scan detected but isScanning was false');
     }
 }
 
@@ -337,11 +340,13 @@ async function stopScanner() {
     if (html5QrCode) {
         try {
             await html5QrCode.stop();
-            html5QrCode.clear();
+            await html5QrCode.clear();
         } catch (err) {
             console.error('Error stopping scanner:', err);
         }
     }
+    html5QrCode = null;
+    console.log('Scanner stopped and cleared');
 }
 
 // Lookup product
@@ -460,6 +465,8 @@ function displayProduct(product, isDuplicate) {
 
 // Reset scanner
 function resetScanner() {
+    console.log('Resetting scanner');
+    isScanning = false;
     resultContainer.classList.add('hidden');
     scannerContainer.classList.remove('hidden');
     errorMessage.classList.add('hidden');
