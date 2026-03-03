@@ -294,6 +294,17 @@ button {
     display: none !important;
 }
 
+/* Version indicator */
+.version {
+    position: fixed;
+    bottom: 8px;
+    right: 12px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+    pointer-events: none;
+}
+
 @media (max-width: 480px) {
     body {
         padding: 16px;
