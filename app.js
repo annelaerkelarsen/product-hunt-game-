@@ -6,6 +6,122 @@ let isScanning = false;
 const WINNING_SCORE = 3;
 let useLocalStorage = true; // Will try Firebase, fallback to localStorage
 
+// API Configuration for multi-provider waterfall
+const API_CONFIG = {
+  apis: [
+    {
+      name: 'openfoodfacts',
+      endpoint: 'https://world.openfoodfacts.org/api/v0/product/{barcode}.json',
+      requiresKey: false,
+      parseResponse: (data) => ({
+        name: data.product.product_name,
+        brand: data.product.brands,
+        image: data.product.image_url
+      }),
+      isSuccess: (data) => data.status === 1
+    },
+    {
+      name: 'goupc',
+      endpoint: 'https://go-upc.com/api/v1/code/{barcode}',
+      requiresKey: true,
+      apiKey: localStorage.getItem('goupc-key'),
+      headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+      parseResponse: (data) => ({
+        name: data.product?.name,
+        brand: data.product?.brand,
+        image: data.product?.imageUrl
+      }),
+      isSuccess: (data) => data.product?.name
+    },
+    {
+      name: 'eansearch',
+      endpoint: 'https://api.ean-search.org/api?op=barcode-lookup&barcode={barcode}&format=json',
+      requiresKey: false,
+      parseResponse: (data) => ({
+        name: data[0]?.name,
+        brand: data[0]?.categoryName,
+        image: data[0]?.imageUrl
+      }),
+      isSuccess: (data) => data?.length > 0
+    },
+    {
+      name: 'upcsearch',
+      endpoint: 'https://api.upc-search.org/barcode/{barcode}',
+      requiresKey: false,
+      parseResponse: (data) => ({
+        name: data.product_name,
+        brand: data.brand,
+        image: data.image_url
+      }),
+      isSuccess: (data) => data.product_name
+    },
+    {
+      name: 'barcodelookup',
+      endpoint: 'https://api.barcodelookup.com/v3/products?barcode={barcode}&key={apiKey}',
+      requiresKey: true,
+      apiKey: localStorage.getItem('barcodelookup-key'),
+      parseResponse: (data) => ({
+        name: data.products?.[0]?.title,
+        brand: data.products?.[0]?.brand,
+        image: data.products?.[0]?.images?.[0]
+      }),
+      isSuccess: (data) => data.products?.length > 0
+    },
+    {
+      name: 'upcitemdb',
+      endpoint: 'https://api.upcitemdb.com/prod/trial/lookup?upc={barcode}',
+      requiresKey: false,
+      parseResponse: (data) => ({
+        name: data.items?.[0]?.title,
+        brand: data.items?.[0]?.brand,
+        image: data.items?.[0]?.images?.[0]
+      }),
+      isSuccess: (data) => data.items?.length > 0
+    }
+  ],
+  timeout: 5000,
+  cacheSuccessTTL: 30 * 24 * 60 * 60 * 1000, // 30 days
+  cacheFailureTTL: 24 * 60 * 60 * 1000 // 24 hours
+};
+
+// Cache Functions
+function checkCache(barcode) {
+  const cache = JSON.parse(localStorage.getItem('productCache') || '{}');
+  const cached = cache[barcode];
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log('Cache hit:', barcode);
+    return cached.product;
+  }
+  return null;
+}
+
+function cacheProduct(barcode, product, source) {
+  const cache = JSON.parse(localStorage.getItem('productCache') || '{}');
+  cache[barcode] = {
+    product,
+    source,
+    cachedAt: Date.now(),
+    expiresAt: Date.now() + API_CONFIG.cacheSuccessTTL
+  };
+  localStorage.setItem('productCache', JSON.stringify(cache));
+}
+
+function cacheFailure(barcode) {
+  const failures = JSON.parse(localStorage.getItem('productFailures') || '{}');
+  failures[barcode] = {
+    attempts: (failures[barcode]?.attempts || 0) + 1,
+    lastAttempt: Date.now(),
+    expiresAt: Date.now() + API_CONFIG.cacheFailureTTL
+  };
+  localStorage.setItem('productFailures', JSON.stringify(failures));
+}
+
+function isRecentFailure(barcode) {
+  const failures = JSON.parse(localStorage.getItem('productFailures') || '{}');
+  const failure = failures[barcode];
+  return failure && failure.expiresAt > Date.now();
+}
+
 // Try to load Firebase
 let database = null;
 let firebaseLoaded = false;
@@ -318,12 +434,27 @@ async function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
 
             const config = {
-                fps: 15,
-                qrbox: { width: 280, height: 140 },
-                // Support all barcode formats
+                fps: 20,  // Increased from 15
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                    return {
+                        width: Math.floor(minEdgeSize * 0.75),
+                        height: Math.floor(minEdgeSize * 0.28)
+                    };
+                },
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true
-                }
+                },
+                showZoomSliderIfSupported: true,
+                defaultZoomValueIfSupported: 2,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ]
             };
 
             await html5QrCode.start(
@@ -372,12 +503,55 @@ async function startNativeBarcodeDetector() {
     readerDiv.innerHTML = '';
     readerDiv.appendChild(video);
 
-    videoStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-    });
+    // Request higher resolution and zoom capability
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1920, min: 640 },
+                height: { ideal: 1080, min: 480 },
+                zoom: true,
+                focusMode: 'continuous',
+                aspectRatio: { ideal: 16/9 }
+            }
+        });
+    } catch (err) {
+        // Fallback to basic constraints if advanced features not supported
+        console.log('Advanced constraints not supported, using basic');
+        videoStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+    }
 
     video.srcObject = videoStream;
     await video.play();
+
+    // Check capabilities and settings
+    const videoTrack = videoStream.getVideoTracks()[0];
+    const capabilities = videoTrack.getCapabilities();
+    const settings = videoTrack.getSettings();
+
+    console.log('Camera capabilities:', capabilities);
+    console.log('Active video settings:', {
+        width: settings.width,
+        height: settings.height,
+        aspectRatio: settings.aspectRatio,
+        facingMode: settings.facingMode
+    });
+
+    // Setup zoom controls if supported
+    if (capabilities.zoom) {
+        setupZoomControls(videoTrack, capabilities.zoom);
+    }
+
+    // Setup torch/flashlight if supported
+    if (capabilities.torch) {
+        setupTorchControl(videoTrack);
+    }
 
     barcodeDetector = new BarcodeDetector({
         formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
@@ -386,24 +560,85 @@ async function startNativeBarcodeDetector() {
     isScanning = true;
     startBtn.style.display = 'none';
 
-    // Detect barcodes continuously
+    // Show scan box overlay
+    const scanBoxOverlay = document.getElementById('scan-box-overlay');
+    if (scanBoxOverlay) {
+        scanBoxOverlay.style.display = 'flex';
+    }
+
+    // Update feedback text
+    updateScanFeedback('Searching for barcode...', 'searching');
+
+    let detectionCount = 0;
+    let lastBarcode = null;
+
+    // FASTER DETECTION: 100ms = 10 FPS (was 200ms = 5 FPS)
     detectionInterval = setInterval(async () => {
         if (!isScanning) return;
 
         try {
             const barcodes = await barcodeDetector.detect(video);
+
             if (barcodes.length > 0) {
-                console.log('Detected barcodes:', barcodes.map(b => `${b.format}: ${b.rawValue}`));
-                if (isScanning) {
+                const barcode = barcodes[0];
+                console.log('Detected:', barcode.format, barcode.rawValue);
+
+                // Visual and haptic feedback
+                updateScanFeedback('Barcode found - hold steady!', 'found');
+
+                // Vibrate if supported
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+
+                // Require 1 consecutive detection (reduced from 2 for better responsiveness)
+                if (lastBarcode === barcode.rawValue) {
+                    detectionCount++;
+                } else {
+                    lastBarcode = barcode.rawValue;
+                    detectionCount = 1;
+                }
+
+                if (detectionCount >= 1 && isScanning) {
                     isScanning = false;
-                    stopNativeBarcodeDetector();
-                    onScanSuccess(barcodes[0].rawValue);
+                    updateScanFeedback('✓ Scanned!', 'success');
+
+                    // Final vibration
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+
+                    setTimeout(() => {
+                        stopNativeBarcodeDetector();
+                        onScanSuccess(barcode.rawValue);
+                    }, 500);
+                }
+            } else {
+                // Reset if no barcode detected
+                if (detectionCount > 0) {
+                    detectionCount = 0;
+                    lastBarcode = null;
+                    updateScanFeedback('Searching for barcode...', 'searching');
                 }
             }
         } catch (err) {
             console.error('Detection error:', err);
         }
-    }, 200); // Check 5 times per second
+    }, 100); // Changed from 200ms to 100ms
+}
+
+function updateScanFeedback(message, state) {
+    const feedback = document.getElementById('scan-feedback');
+    const scanBox = document.querySelector('.scan-box');
+
+    if (feedback) {
+        feedback.textContent = message;
+        feedback.className = 'scan-feedback ' + state;
+    }
+
+    if (scanBox) {
+        scanBox.className = 'scan-box ' + state;
+    }
 }
 
 function stopNativeBarcodeDetector() {
@@ -415,9 +650,85 @@ function stopNativeBarcodeDetector() {
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;
     }
+
+    // Hide scan box overlay
+    const scanBoxOverlay = document.getElementById('scan-box-overlay');
+    if (scanBoxOverlay) scanBoxOverlay.style.display = 'none';
+
+    // Hide zoom controls
+    const zoomControls = document.getElementById('zoom-controls');
+    if (zoomControls) zoomControls.style.display = 'none';
+
+    // Hide flashlight
+    const flashBtn = document.getElementById('flashlight-btn');
+    if (flashBtn) flashBtn.style.display = 'none';
+
     const readerDiv = document.getElementById('reader');
     readerDiv.innerHTML = '';
+
     console.log('Native detector stopped');
+}
+
+// Zoom Control Functions
+let currentZoom = 1.0;
+let videoTrackForZoom = null;
+
+function setupZoomControls(videoTrack, zoomCapabilities) {
+    videoTrackForZoom = videoTrack;
+
+    const zoomControls = document.getElementById('zoom-controls');
+    if (!zoomControls) return;
+
+    zoomControls.style.display = 'flex';
+
+    const slider = document.getElementById('zoom-slider');
+    slider.min = zoomCapabilities.min || 1;
+    slider.max = zoomCapabilities.max || 3;
+    slider.step = 0.1;
+    slider.value = currentZoom;
+
+    slider.addEventListener('input', (e) => {
+        setZoom(parseFloat(e.target.value));
+    });
+
+    document.getElementById('zoom-in')?.addEventListener('click', () => {
+        const newZoom = Math.min(currentZoom + 0.5, zoomCapabilities.max);
+        setZoom(newZoom);
+        slider.value = newZoom;
+    });
+
+    document.getElementById('zoom-out')?.addEventListener('click', () => {
+        const newZoom = Math.max(currentZoom - 0.5, zoomCapabilities.min);
+        setZoom(newZoom);
+        slider.value = newZoom;
+    });
+}
+
+function setZoom(level) {
+    if (videoTrackForZoom) {
+        videoTrackForZoom.applyConstraints({
+            advanced: [{ zoom: level }]
+        });
+        currentZoom = level;
+        const levelEl = document.getElementById('zoom-level');
+        if (levelEl) levelEl.textContent = level.toFixed(1) + 'x';
+    }
+}
+
+function setupTorchControl(videoTrack) {
+    const torchBtn = document.getElementById('flashlight-btn');
+    if (!torchBtn) return;
+
+    torchBtn.style.display = 'block';
+    let torchEnabled = false;
+
+    torchBtn.addEventListener('click', () => {
+        torchEnabled = !torchEnabled;
+        videoTrack.applyConstraints({
+            advanced: [{ torch: torchEnabled }]
+        });
+        torchBtn.classList.toggle('active', torchEnabled);
+    });
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -454,7 +765,7 @@ async function stopScanner() {
     console.log('Scanner stopped and cleared');
 }
 
-// Lookup product
+// Lookup product with multi-API waterfall
 async function lookupProduct(barcode) {
     scannerContainer.classList.add('hidden');
     resultContainer.classList.remove('hidden');
@@ -467,64 +778,81 @@ async function lookupProduct(barcode) {
     scanStatusEl.textContent = '';
 
     try {
-        // Try Open Food Facts first
-        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-        const data = await response.json();
+        // Check cache first
+        const cached = checkCache(barcode);
+        if (cached) {
+            addProductToCollection(cached);
+            return;
+        }
 
-        if (data.status === 1 && data.product) {
-            const product = {
-                barcode: barcode,
-                name: data.product.product_name || 'Unknown Product',
-                brand: data.product.brands || '',
-                image: data.product.image_url || null
-            };
-            addProductToCollection(product);
-        } else {
-            // Fallback: Try UPCitemdb
+        // Check if we've failed this recently
+        if (isRecentFailure(barcode)) {
+            console.log('Recent failure, skipping API calls');
+            addProductToCollection(createUnknownProduct(barcode));
+            return;
+        }
+
+        // Try API waterfall
+        for (const api of API_CONFIG.apis) {
+            if (api.requiresKey && !api.apiKey) {
+                console.log(`Skipping ${api.name} - no API key`);
+                continue;
+            }
+
             try {
-                const upcResponse = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
-                const upcData = await upcResponse.json();
+                const url = api.endpoint.replace('{barcode}', barcode).replace('{apiKey}', api.apiKey || '');
+                const headers = api.headers ? api.headers(api.apiKey) : {};
 
-                if (upcData.items && upcData.items.length > 0) {
-                    const item = upcData.items[0];
+                console.log(`Trying ${api.name}...`);
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+
+                const response = await fetch(url, {
+                    headers,
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+
+                const data = await response.json();
+
+                if (api.isSuccess(data)) {
+                    const parsed = api.parseResponse(data);
                     const product = {
-                        barcode: barcode,
-                        name: item.title || 'Unknown Product',
-                        brand: item.brand || '',
-                        image: (item.images && item.images.length > 0) ? item.images[0] : null
+                        barcode,
+                        name: parsed.name || 'Unknown Product',
+                        brand: parsed.brand || '',
+                        image: parsed.image || null
                     };
+
+                    console.log(`✓ Found in ${api.name}:`, product);
+                    cacheProduct(barcode, product, api.name);
                     addProductToCollection(product);
-                } else {
-                    // No product found in either database
-                    const product = {
-                        barcode: barcode,
-                        name: 'Unknown Product',
-                        brand: 'Barcode: ' + barcode,
-                        image: null
-                    };
-                    addProductToCollection(product);
+                    return;
                 }
-            } catch (upcErr) {
-                console.error('UPC lookup error:', upcErr);
-                const product = {
-                    barcode: barcode,
-                    name: 'Unknown Product',
-                    brand: 'Barcode: ' + barcode,
-                    image: null
-                };
-                addProductToCollection(product);
+            } catch (err) {
+                console.log(`${api.name} failed:`, err.message);
+                continue;
             }
         }
+
+        // All APIs failed
+        console.log('All APIs failed for barcode:', barcode);
+        cacheFailure(barcode);
+        addProductToCollection(createUnknownProduct(barcode));
+
     } catch (err) {
-        console.error('Error looking up product:', err);
-        const product = {
-            barcode: barcode,
-            name: 'Unknown Product',
-            brand: 'Barcode: ' + barcode,
-            image: null
-        };
-        addProductToCollection(product);
+        console.error('Error in lookupProduct:', err);
+        addProductToCollection(createUnknownProduct(barcode));
     }
+}
+
+function createUnknownProduct(barcode) {
+    return {
+        barcode,
+        name: 'Unknown Product',
+        brand: `Barcode: ${barcode}`,
+        image: null
+    };
 }
 
 // Add product to collection
@@ -607,6 +935,17 @@ function resetScanner() {
     startBtn.style.display = 'block';
     startBtn.textContent = 'Start Scanning';
     startBtn.disabled = false;
+}
+
+// Save API Keys
+function saveAPIKeys() {
+    const goupckKey = document.getElementById('goupc-key')?.value.trim();
+    const barcodelookupKey = document.getElementById('barcodelookup-key')?.value.trim();
+
+    if (goupckKey) localStorage.setItem('goupc-key', goupckKey);
+    if (barcodelookupKey) localStorage.setItem('barcodelookup-key', barcodelookupKey);
+
+    alert('API keys saved! They will be used for product lookups.');
 }
 
 // Show error

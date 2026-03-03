@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Product Hunt Game</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=210">
 </head>
 <body>
     <div class="container">
@@ -19,6 +22,20 @@
             <div class="card">
                 <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
                 <button id="join-btn" class="primary-btn">Join Game</button>
+
+                <!-- API Key Configuration -->
+                <details class="api-settings">
+                    <summary>⚙️ Optional: Add API Keys for More Products</summary>
+                    <p class="info-text">Free API keys give you access to 1B+ products</p>
+                    <input type="text" id="goupc-key" placeholder="Go-UPC API Key (optional)">
+                    <input type="text" id="barcodelookup-key" placeholder="Barcode Lookup Key (optional)">
+                    <button class="secondary-btn" onclick="saveAPIKeys()">Save Keys</button>
+                    <p class="help-text">
+                        Get free keys:
+                        <a href="https://go-upc.com" target="_blank">go-upc.com</a> |
+                        <a href="https://www.barcodelookup.com/api" target="_blank">barcodelookup.com</a>
+                    </p>
+                </details>
             </div>
         </div>
 
@@ -40,8 +57,45 @@
 
             <!-- Scanner -->
             <div id="scanner-container" class="card">
-                <div id="reader"></div>
+                <div id="reader" style="position: relative;">
+                    <!-- Scan Box Overlay -->
+                    <div id="scan-box-overlay" class="scan-box-overlay" style="display: none;">
+                        <div class="scan-box">
+                            <div class="corner corner-tl"></div>
+                            <div class="corner corner-tr"></div>
+                            <div class="corner corner-bl"></div>
+                            <div class="corner corner-br"></div>
+                            <div class="scan-line"></div>
+                        </div>
+                        <div id="scan-feedback" class="scan-feedback">Position barcode in box</div>
+                    </div>
+                    <!-- Flashlight Toggle -->
+                    <button id="flashlight-btn" class="icon-btn" style="display: none;">
+                        🔦
+                    </button>
+                </div>
+
+                <!-- Zoom Controls (shown when camera supports zoom) -->
+                <div id="zoom-controls" class="zoom-controls" style="display: none;">
+                    <button id="zoom-out" class="zoom-btn">-</button>
+                    <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1">
+                    <button id="zoom-in" class="zoom-btn">+</button>
+                    <span id="zoom-level">1.0x</span>
+                </div>
+
                 <button id="start-btn" class="primary-btn">Start Scanning</button>
+
+                <!-- Scan Tips -->
+                <div class="scan-tips">
+                    <p class="tips-title">📱 For small barcodes:</p>
+                    <ul>
+                        <li>Move closer to the barcode</li>
+                        <li>Use zoom controls if available</li>
+                        <li>Tap flashlight for better lighting</li>
+                        <li>Keep barcode flat and centered</li>
+                    </ul>
+                </div>
+
                 <div class="manual-entry">
                     <p class="manual-entry-label">Can't scan? Enter manually:</p>
                     <input type="text" id="manual-barcode" placeholder="Type barcode number" maxlength="20">
@@ -83,10 +137,10 @@
             </div>
         </div>
 
-        <div class="version">v1.0.6</div>
+        <div class="version">v2.1.0</div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=210"></script>
 </body>
 </html>
