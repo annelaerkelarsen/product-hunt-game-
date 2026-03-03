@@ -42,6 +42,11 @@
             <div id="scanner-container" class="card">
                 <div id="reader"></div>
                 <button id="start-btn" class="primary-btn">Start Scanning</button>
+                <div class="manual-entry">
+                    <p class="manual-entry-label">Can't scan? Enter manually:</p>
+                    <input type="text" id="manual-barcode" placeholder="Type barcode number" maxlength="20">
+                    <button id="manual-submit-btn" class="secondary-btn">Add Product</button>
+                </div>
             </div>
 
             <!-- Scanned Product -->
@@ -78,7 +83,7 @@
             </div>
         </div>
 
-        <div class="version">v1.0.4</div>
+        <div class="version">v1.0.5</div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>

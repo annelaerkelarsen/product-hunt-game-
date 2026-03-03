@@ -154,6 +154,45 @@ h3 {
     margin-bottom: 20px;
 }
 
+/* Manual entry */
+.manual-entry {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.manual-entry-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+#manual-barcode {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    text-align: center;
+    font-family: monospace;
+}
+
+#manual-barcode:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.secondary-btn {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.secondary-btn:active {
+    background: #e0e0e0;
+}
+
 /* Buttons */
 button {
     width: 100%;

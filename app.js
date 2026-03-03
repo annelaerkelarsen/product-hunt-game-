@@ -294,26 +294,33 @@ async function startScanner() {
         startBtn.textContent = 'Starting camera...';
         startBtn.disabled = true;
 
-        html5QrCode = new Html5Qrcode("reader");
+        // Try native BarcodeDetector first (better performance)
+        if ('BarcodeDetector' in window) {
+            console.log('Using native BarcodeDetector');
+            await startNativeBarcodeDetector();
+        } else {
+            console.log('Falling back to html5-qrcode');
+            html5QrCode = new Html5Qrcode("reader");
 
-        const config = {
-            fps: 15,
-            qrbox: { width: 250, height: 120 },
-            // Support all barcode formats
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true
-            }
-        };
+            const config = {
+                fps: 15,
+                qrbox: { width: 280, height: 140 },
+                // Support all barcode formats
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            };
 
-        await html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            onScanSuccess,
-            onScanError
-        );
+            await html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                onScanError
+            );
 
-        isScanning = true;
-        startBtn.style.display = 'none';
+            isScanning = true;
+            startBtn.style.display = 'none';
+        }
 
     } catch (err) {
         console.error('Error starting scanner:', err);
@@ -335,6 +342,66 @@ async function startScanner() {
     }
 }
 
+// Native barcode detector (better than html5-qrcode)
+let videoStream = null;
+let barcodeDetector = null;
+let detectionInterval = null;
+
+async function startNativeBarcodeDetector() {
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', true);
+    video.style.width = '100%';
+    video.style.borderRadius = '12px';
+
+    const readerDiv = document.getElementById('reader');
+    readerDiv.innerHTML = '';
+    readerDiv.appendChild(video);
+
+    videoStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+    });
+
+    video.srcObject = videoStream;
+    await video.play();
+
+    barcodeDetector = new BarcodeDetector({
+        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
+    });
+
+    isScanning = true;
+    startBtn.style.display = 'none';
+
+    // Detect barcodes continuously
+    detectionInterval = setInterval(async () => {
+        if (!isScanning) return;
+
+        try {
+            const barcodes = await barcodeDetector.detect(video);
+            if (barcodes.length > 0 && isScanning) {
+                isScanning = false;
+                stopNativeBarcodeDetector();
+                onScanSuccess(barcodes[0].rawValue);
+            }
+        } catch (err) {
+            console.error('Detection error:', err);
+        }
+    }, 200); // Check 5 times per second
+}
+
+function stopNativeBarcodeDetector() {
+    if (detectionInterval) {
+        clearInterval(detectionInterval);
+        detectionInterval = null;
+    }
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+    }
+    const readerDiv = document.getElementById('reader');
+    readerDiv.innerHTML = '';
+    console.log('Native detector stopped');
+}
+
 function onScanSuccess(decodedText, decodedResult) {
     console.log('Barcode detected:', decodedText, 'isScanning:', isScanning);
     if (isScanning) {
@@ -351,6 +418,12 @@ function onScanError(errorMessage) {
 }
 
 async function stopScanner() {
+    // Stop native detector if running
+    if (detectionInterval || videoStream) {
+        stopNativeBarcodeDetector();
+    }
+
+    // Stop html5-qrcode if running
     if (html5QrCode) {
         try {
             await html5QrCode.stop();
