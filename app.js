@@ -190,8 +190,13 @@ const manualSubmitBtn = document.getElementById('manual-submit-btn');
 // Initialize Firebase
 initFirebase();
 
+console.log('🚀 App loaded - Product Hunt v2.1.0');
+console.log('Join button:', joinBtn);
+console.log('Player name input:', playerNameInput);
+
 // Event listeners
 joinBtn.addEventListener('click', joinGame);
+console.log('✓ Event listeners attached');
 playerNameInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') joinGame();
 });
@@ -220,8 +225,10 @@ manualBarcodeInput.addEventListener('keypress', (e) => {
 // Join game
 async function joinGame() {
     try {
-        console.log('Join game clicked');
+        console.log('🎮 Join game clicked');
+        console.log('Player name input:', playerNameInput);
         const name = playerNameInput.value.trim();
+        console.log('Player name value:', name);
         if (!name) {
             alert('Please enter your name');
             return;
@@ -1018,6 +1025,9 @@ function saveAPIKeys() {
 
     alert('API keys saved! They will be used for product lookups.');
 }
+
+// Make saveAPIKeys globally accessible for inline onclick
+window.saveAPIKeys = saveAPIKeys;
 
 // Show error
 function showError(message) {
