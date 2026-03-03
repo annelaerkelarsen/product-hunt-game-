@@ -145,7 +145,7 @@
             </div>
         </div>
 
-        <div class="version">v2.2.2</div>
+        <div class="version">v2.3.0</div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -170,7 +170,22 @@
         const script = document.createElement('script');
         script.type = 'module';
         script.src = `app.js?v=${version}`;
-        document.body.appendChild(script);
+
+        script.onload = () => {
+            console.log('✅ Module loaded successfully');
+            const statusEl = document.getElementById('status-text');
+            if (statusEl) statusEl.textContent = 'Module loaded!';
+        };
+
+        script.onerror = (e) => {
+            console.error('❌ Module failed to load:', e);
+            const statusEl = document.getElementById('status-text');
+            const debugEl = document.getElementById('debug-status');
+            if (statusEl) statusEl.textContent = 'ERROR: Module failed to load - check console';
+            if (debugEl) debugEl.style.background = '#f8d7da';
+        };
+
+        document.head.appendChild(script);
         console.log('Loading module:', script.src);
     </script>
 </body>

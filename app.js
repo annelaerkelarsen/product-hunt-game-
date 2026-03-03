@@ -584,7 +584,6 @@ async function startNativeBarcodeDetector() {
         canvas.height = video.videoHeight;
     });
 
-    const readerDiv = document.getElementById('reader');
     readerDiv.appendChild(canvas);
     const ctx = canvas.getContext('2d');
 
