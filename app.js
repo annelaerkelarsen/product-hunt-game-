@@ -84,41 +84,50 @@ newGameBtn.addEventListener('click', () => {
 
 // Join game
 async function joinGame() {
-    const name = playerNameInput.value.trim();
-    if (!name) {
-        alert('Please enter your name');
-        return;
-    }
+    try {
+        console.log('Join game clicked');
+        const name = playerNameInput.value.trim();
+        if (!name) {
+            alert('Please enter your name');
+            return;
+        }
 
-    playerId = 'player_' + Date.now();
-    currentPlayer = {
-        id: playerId,
-        name: name,
-        products: {},
-        score: 0,
-        joinedAt: Date.now()
-    };
+        console.log('Name entered:', name);
+        playerId = 'player_' + Date.now();
+        currentPlayer = {
+            id: playerId,
+            name: name,
+            products: {},
+            score: 0,
+            joinedAt: Date.now()
+        };
 
-    if (useLocalStorage) {
-        // LocalStorage mode
-        saveToLocalStorage();
-        showGameScreen();
-        updateLocalLeaderboard();
-
-        // Simulate checking for updates
-        setInterval(() => {
+        if (useLocalStorage) {
+            console.log('Using localStorage mode');
+            // LocalStorage mode
+            saveToLocalStorage();
+            showGameScreen();
             updateLocalLeaderboard();
-        }, 1000);
-    } else {
-        // Firebase mode
-        const { ref, set } = window;
-        await set(ref(database, 'players/' + playerId), currentPlayer);
-        showGameScreen();
-        listenToPlayers();
 
-        window.addEventListener('beforeunload', () => {
-            window.firebaseRemove(ref(database, 'players/' + playerId));
-        });
+            // Simulate checking for updates
+            setInterval(() => {
+                updateLocalLeaderboard();
+            }, 1000);
+        } else {
+            console.log('Using Firebase mode');
+            // Firebase mode
+            const { ref, set } = window;
+            await set(ref(database, 'players/' + playerId), currentPlayer);
+            showGameScreen();
+            listenToPlayers();
+
+            window.addEventListener('beforeunload', () => {
+                window.firebaseRemove(ref(database, 'players/' + playerId));
+            });
+        }
+    } catch (error) {
+        console.error('Error joining game:', error);
+        alert('Error joining game: ' + error.message);
     }
 }
 
