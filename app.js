@@ -12,6 +12,18 @@ scanAgainBtn.addEventListener('click', resetScanner);
 
 async function startScanner() {
     try {
+        // Check if HTTPS
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            showError('Camera access requires HTTPS. Please use: https://dreamy-manatee-4cac82.netlify.app');
+            return;
+        }
+
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showError('Your browser does not support camera access. Please use Safari on iOS.');
+            return;
+        }
+
         startBtn.textContent = 'Starting camera...';
         startBtn.disabled = true;
 
@@ -44,7 +56,19 @@ async function startScanner() {
 
     } catch (err) {
         console.error('Error starting scanner:', err);
-        showError('Could not access camera. Please allow camera access and try again.');
+        let errorMsg = 'Could not access camera.\n\n';
+
+        if (err.name === 'NotAllowedError' || err.message.includes('Permission denied')) {
+            errorMsg += 'Fix: Safari Settings > Privacy > Camera > Allow this site';
+        } else if (err.name === 'NotFoundError') {
+            errorMsg += 'No camera found on this device.';
+        } else if (err.message.includes('secure')) {
+            errorMsg += 'Make sure you are using HTTPS (https://dreamy-manatee-4cac82.netlify.app)';
+        } else {
+            errorMsg += 'Try: Settings > Safari > Camera = Ask';
+        }
+
+        showError(errorMsg);
         startBtn.textContent = 'Start Scanner';
         startBtn.disabled = false;
     }
@@ -155,6 +179,6 @@ function resetScanner() {
 }
 
 function showError(message) {
-    errorMessage.textContent = message;
+    errorMessage.innerHTML = message.replace(/\n/g, '<br>');
     errorMessage.classList.remove('hidden');
 }
