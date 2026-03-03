@@ -145,7 +145,7 @@
             </div>
         </div>
 
-        <div class="version">v2.2.1</div>
+        <div class="version">v2.2.2</div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -163,8 +163,15 @@
                 document.getElementById('debug-status').style.background = '#ffeaa7';
             }
         }, 100);
-    </script>
 
-    <script type="module" src="app.js?v=210"></script>
+        // Load module with cache-busting from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const version = urlParams.get('v') || Date.now();
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = `app.js?v=${version}`;
+        document.body.appendChild(script);
+        console.log('Loading module:', script.src);
+    </script>
 </body>
 </html>
