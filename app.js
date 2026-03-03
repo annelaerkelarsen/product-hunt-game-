@@ -278,21 +278,27 @@ async function startScanner() {
 
         const config = {
             fps: 10,
-            qrbox: { width: 250, height: 150 },
-            aspectRatio: 1.0,
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.QR_CODE
-            ]
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // Make scan box 70% of the smaller dimension
+                let minEdgePercentage = 0.7;
+                let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                return {
+                    width: qrboxSize,
+                    height: Math.floor(qrboxSize * 0.6)
+                };
+            },
+            aspectRatio: 1.777778,
+            // Don't specify formatsToSupport to allow all formats
         };
 
         await html5QrCode.start(
-            { facingMode: "environment" },
+            {
+                facingMode: "environment",
+                advanced: [{
+                    focusMode: "continuous"
+                }]
+            },
             config,
             onScanSuccess,
             onScanError
