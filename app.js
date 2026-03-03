@@ -103,7 +103,8 @@ async function joinGame() {
             name: name,
             products: {},
             score: 0,
-            joinedAt: Date.now()
+            joinedAt: Date.now(),
+            lastActive: Date.now()
         };
 
         if (useLocalStorage) {
@@ -177,6 +178,18 @@ function listenToPlayers() {
         const players = snapshot.val();
         if (!players) return;
 
+        // Clean up inactive players (no activity in 3 minutes)
+        const now = Date.now();
+        const INACTIVE_THRESHOLD = 3 * 60 * 1000; // 3 minutes
+
+        Object.entries(players).forEach(([id, player]) => {
+            const lastActive = player.lastActive || player.joinedAt || 0;
+            if (now - lastActive > INACTIVE_THRESHOLD && id !== playerId) {
+                console.log('Removing inactive player:', player.name);
+                fbRemove(fbRef(database, 'players/' + id));
+            }
+        });
+
         updateLeaderboard(players);
         checkForWinner(players);
 
@@ -187,6 +200,13 @@ function listenToPlayers() {
             updateMyCollection(players[playerId].products || {});
         }
     });
+
+    // Keep current player active
+    setInterval(() => {
+        if (playerId && database) {
+            fbSet(fbRef(database, 'players/' + playerId + '/lastActive'), Date.now());
+        }
+    }, 30000); // Update every 30 seconds
 }
 
 // Update leaderboard
@@ -278,27 +298,12 @@ async function startScanner() {
 
         const config = {
             fps: 10,
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-                // Make scan box 70% of the smaller dimension
-                let minEdgePercentage = 0.7;
-                let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-                let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-                return {
-                    width: qrboxSize,
-                    height: Math.floor(qrboxSize * 0.6)
-                };
-            },
-            aspectRatio: 1.777778,
-            // Don't specify formatsToSupport to allow all formats
+            qrbox: { width: 300, height: 180 },
+            // Support all barcode formats
         };
 
         await html5QrCode.start(
-            {
-                facingMode: "environment",
-                advanced: [{
-                    focusMode: "continuous"
-                }]
-            },
+            { facingMode: "environment" },
             config,
             onScanSuccess,
             onScanError
@@ -437,7 +442,8 @@ function addProductToCollection(product) {
                 fbSet(fbRef(database, 'players/' + playerId), {
                     ...playerData,
                     products: products,
-                    score: score
+                    score: score,
+                    lastActive: Date.now()
                 });
 
                 displayProduct(product, false);
