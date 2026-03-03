@@ -5,36 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Barcode Scanner</title>
+    <title>Product Hunt Game</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>📦 Barcode Scanner</h1>
-        </header>
-
-        <div id="scanner-container">
-            <div id="reader"></div>
-            <button id="start-btn" class="primary-btn">Start Scanner</button>
-        </div>
-
-        <div id="result-container" class="hidden">
-            <div id="product-info">
-                <div id="product-image"></div>
-                <div id="product-details">
-                    <h2 id="product-name">Loading...</h2>
-                    <p id="product-brand"></p>
-                    <p id="product-barcode"></p>
-                </div>
+        <!-- Welcome Screen -->
+        <div id="welcome-screen">
+            <header>
+                <h1>🎯 Product Hunt</h1>
+                <p class="subtitle">First to scan 3 different products wins!</p>
+            </header>
+            <div class="card">
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
+                <button id="join-btn" class="primary-btn">Join Game</button>
             </div>
-            <button id="scan-again-btn" class="secondary-btn">Scan Another</button>
         </div>
 
-        <div id="error-message" class="hidden"></div>
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <header>
+                <h1>🎯 Product Hunt</h1>
+                <div id="player-info">
+                    <span id="current-player"></span>
+                    <span id="player-score">0/3</span>
+                </div>
+            </header>
+
+            <!-- Leaderboard -->
+            <div id="leaderboard" class="card">
+                <h3>Live Leaderboard</h3>
+                <div id="players-list"></div>
+            </div>
+
+            <!-- Scanner -->
+            <div id="scanner-container" class="card">
+                <div id="reader"></div>
+                <button id="start-btn" class="primary-btn">Start Scanning</button>
+            </div>
+
+            <!-- Scanned Product -->
+            <div id="result-container" class="hidden card">
+                <div id="product-info">
+                    <div id="product-image"></div>
+                    <div id="product-details">
+                        <h2 id="product-name">Loading...</h2>
+                        <p id="product-brand"></p>
+                    </div>
+                </div>
+                <div id="scan-status"></div>
+                <button id="scan-again-btn" class="primary-btn">Scan Next Product</button>
+            </div>
+
+            <!-- My Collection -->
+            <div id="my-collection" class="card">
+                <h3>My Products (<span id="collection-count">0</span>/3)</h3>
+                <div id="collection-list"></div>
+            </div>
+
+            <div id="error-message" class="hidden"></div>
+        </div>
+
+        <!-- Winner Screen -->
+        <div id="winner-screen" class="hidden">
+            <header>
+                <h1>🏆</h1>
+                <h2 id="winner-name"></h2>
+                <p class="subtitle">Won the game!</p>
+            </header>
+            <div class="card">
+                <button id="new-game-btn" class="primary-btn">Play Again</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>

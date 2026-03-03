@@ -1,24 +1,187 @@
-let html5QrCode;
-let isScanning = false;
+// Firebase configuration
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getDatabase, ref, set, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
 
+const firebaseConfig = {
+    apiKey: "AIzaSyBvK8xM5_5h8L3pQ7Z3J6yH8K8F8wZq4xM",
+    authDomain: "product-hunt-game.firebaseapp.com",
+    databaseURL: "https://product-hunt-game-default-rtdb.firebaseio.com",
+    projectId: "product-hunt-game",
+    storageBucket: "product-hunt-game.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abc123def456"
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+// Game state
+let currentPlayer = null;
+let playerId = null;
+let html5QrCode = null;
+let isScanning = false;
+const WINNING_SCORE = 3;
+
+// DOM elements
+const welcomeScreen = document.getElementById('welcome-screen');
+const gameScreen = document.getElementById('game-screen');
+const winnerScreen = document.getElementById('winner-screen');
+const playerNameInput = document.getElementById('player-name');
+const joinBtn = document.getElementById('join-btn');
+const currentPlayerEl = document.getElementById('current-player');
+const playerScoreEl = document.getElementById('player-score');
+const playersListEl = document.getElementById('players-list');
 const startBtn = document.getElementById('start-btn');
 const scanAgainBtn = document.getElementById('scan-again-btn');
 const scannerContainer = document.getElementById('scanner-container');
 const resultContainer = document.getElementById('result-container');
 const errorMessage = document.getElementById('error-message');
+const collectionListEl = document.getElementById('collection-list');
+const collectionCountEl = document.getElementById('collection-count');
+const scanStatusEl = document.getElementById('scan-status');
+const winnerNameEl = document.getElementById('winner-name');
+const newGameBtn = document.getElementById('new-game-btn');
 
+// Event listeners
+joinBtn.addEventListener('click', joinGame);
+playerNameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') joinGame();
+});
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', resetScanner);
+newGameBtn.addEventListener('click', () => location.reload());
 
+// Join game
+function joinGame() {
+    const name = playerNameInput.value.trim();
+    if (!name) {
+        alert('Please enter your name');
+        return;
+    }
+
+    playerId = 'player_' + Date.now();
+    currentPlayer = {
+        id: playerId,
+        name: name,
+        products: {},
+        score: 0,
+        joinedAt: Date.now()
+    };
+
+    // Save player to Firebase
+    set(ref(database, 'players/' + playerId), currentPlayer);
+
+    // Show game screen
+    welcomeScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    currentPlayerEl.textContent = name;
+
+    // Listen for player updates
+    listenToPlayers();
+
+    // Clean up on disconnect
+    window.addEventListener('beforeunload', () => {
+        remove(ref(database, 'players/' + playerId));
+    });
+}
+
+// Listen to all players
+function listenToPlayers() {
+    const playersRef = ref(database, 'players');
+    onValue(playersRef, (snapshot) => {
+        const players = snapshot.val();
+        if (!players) return;
+
+        updateLeaderboard(players);
+        checkForWinner(players);
+
+        // Update current player score
+        if (players[playerId]) {
+            const score = players[playerId].score || 0;
+            playerScoreEl.textContent = score + '/3';
+            collectionCountEl.textContent = score;
+            updateMyCollection(players[playerId].products || {});
+        }
+    });
+}
+
+// Update leaderboard
+function updateLeaderboard(players) {
+    const playerArray = Object.values(players);
+    playerArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    playersListEl.innerHTML = '';
+    playerArray.forEach(player => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-item';
+        if (player.id === playerId) playerDiv.classList.add('me');
+        if (player.score >= WINNING_SCORE) playerDiv.classList.add('winner');
+
+        const score = player.score || 0;
+        const dots = Array(3).fill(0).map((_, i) =>
+            `<div class="product-dot ${i < score ? 'filled' : ''}"></div>`
+        ).join('');
+
+        playerDiv.innerHTML = `
+            <span class="player-name">${player.name}</span>
+            <div class="player-progress">${dots}</div>
+        `;
+        playersListEl.appendChild(playerDiv);
+    });
+}
+
+// Check for winner
+function checkForWinner(players) {
+    const winner = Object.values(players).find(p => p.score >= WINNING_SCORE);
+    if (winner) {
+        showWinner(winner);
+    }
+}
+
+// Show winner screen
+function showWinner(winner) {
+    gameScreen.classList.add('hidden');
+    winnerScreen.classList.remove('hidden');
+    winnerNameEl.textContent = winner.name;
+
+    if (html5QrCode) {
+        stopScanner();
+    }
+}
+
+// Update my collection display
+function updateMyCollection(products) {
+    collectionListEl.innerHTML = '';
+    Object.values(products).forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'collection-item';
+
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'collection-item-image';
+        if (product.image) {
+            imageDiv.innerHTML = `<img src="${product.image}" alt="${product.name}">`;
+        } else {
+            imageDiv.textContent = '📦';
+        }
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'collection-item-name';
+        nameDiv.textContent = product.name;
+
+        item.appendChild(imageDiv);
+        item.appendChild(nameDiv);
+        collectionListEl.appendChild(item);
+    });
+}
+
+// Start scanner
 async function startScanner() {
     try {
-        // Check if HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
             showError('Camera access requires HTTPS. Please use: https://dreamy-manatee-4cac82.netlify.app');
             return;
         }
 
-        // Check if getUserMedia is supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showError('Your browser does not support camera access. Please use Safari on iOS.');
             return;
@@ -69,7 +232,7 @@ async function startScanner() {
         }
 
         showError(errorMsg);
-        startBtn.textContent = 'Start Scanner';
+        startBtn.textContent = 'Start Scanning';
         startBtn.disabled = false;
     }
 }
@@ -83,7 +246,7 @@ function onScanSuccess(decodedText, decodedResult) {
 }
 
 function onScanError(errorMessage) {
-    // Ignore scan errors (they happen continuously while scanning)
+    // Ignore scan errors
 }
 
 async function stopScanner() {
@@ -97,87 +260,113 @@ async function stopScanner() {
     }
 }
 
+// Lookup product
 async function lookupProduct(barcode) {
     scannerContainer.classList.add('hidden');
     resultContainer.classList.remove('hidden');
 
     document.getElementById('product-name').textContent = 'Looking up product...';
     document.getElementById('product-brand').textContent = '';
-    document.getElementById('product-barcode').textContent = `Barcode: ${barcode}`;
     document.getElementById('product-image').className = 'no-image';
     document.getElementById('product-image').innerHTML = '';
+    scanStatusEl.className = '';
+    scanStatusEl.textContent = '';
 
     try {
-        // Try Open Food Facts first
         const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
         const data = await response.json();
 
         if (data.status === 1 && data.product) {
-            displayProduct(data.product, barcode);
+            const product = {
+                barcode: barcode,
+                name: data.product.product_name || 'Unknown Product',
+                brand: data.product.brands || '',
+                image: data.product.image_url || null
+            };
+            addProductToCollection(product);
         } else {
-            // Fallback: Try UPCitemdb
-            const upcResponse = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
-            const upcData = await upcResponse.json();
-
-            if (upcData.items && upcData.items.length > 0) {
-                displayUPCProduct(upcData.items[0], barcode);
-            } else {
-                displayUnknownProduct(barcode);
-            }
+            const product = {
+                barcode: barcode,
+                name: 'Unknown Product',
+                brand: '',
+                image: null
+            };
+            addProductToCollection(product);
         }
     } catch (err) {
         console.error('Error looking up product:', err);
-        displayUnknownProduct(barcode);
+        const product = {
+            barcode: barcode,
+            name: 'Unknown Product',
+            brand: '',
+            image: null
+        };
+        addProductToCollection(product);
     }
 }
 
-function displayProduct(product, barcode) {
-    document.getElementById('product-name').textContent = product.product_name || 'Unknown Product';
-    document.getElementById('product-brand').textContent = product.brands || '';
-    document.getElementById('product-barcode').textContent = `Barcode: ${barcode}`;
+// Add product to collection
+function addProductToCollection(product) {
+    const playerRef = ref(database, 'players/' + playerId);
+    onValue(playerRef, (snapshot) => {
+        const playerData = snapshot.val();
+        if (!playerData) return;
+
+        const products = playerData.products || {};
+
+        // Check if already scanned
+        if (products[product.barcode]) {
+            displayProduct(product, true);
+        } else {
+            // Add new product
+            products[product.barcode] = product;
+            const score = Object.keys(products).length;
+
+            set(ref(database, 'players/' + playerId), {
+                ...playerData,
+                products: products,
+                score: score
+            });
+
+            displayProduct(product, false);
+        }
+    }, { onlyOnce: true });
+}
+
+// Display product
+function displayProduct(product, isDuplicate) {
+    document.getElementById('product-name').textContent = product.name;
+    document.getElementById('product-brand').textContent = product.brand;
 
     const imageContainer = document.getElementById('product-image');
-    if (product.image_url) {
+    if (product.image) {
         imageContainer.className = '';
-        imageContainer.innerHTML = `<img src="${product.image_url}" alt="${product.product_name}">`;
+        imageContainer.innerHTML = `<img src="${product.image}" alt="${product.name}">`;
     } else {
         imageContainer.className = 'no-image';
         imageContainer.innerHTML = '';
     }
-}
 
-function displayUPCProduct(product, barcode) {
-    document.getElementById('product-name').textContent = product.title || 'Unknown Product';
-    document.getElementById('product-brand').textContent = product.brand || '';
-    document.getElementById('product-barcode').textContent = `Barcode: ${barcode}`;
-
-    const imageContainer = document.getElementById('product-image');
-    if (product.images && product.images.length > 0) {
-        imageContainer.className = '';
-        imageContainer.innerHTML = `<img src="${product.images[0]}" alt="${product.title}">`;
+    if (isDuplicate) {
+        scanStatusEl.className = 'duplicate';
+        scanStatusEl.textContent = 'Already scanned! Find a different product.';
     } else {
-        imageContainer.className = 'no-image';
-        imageContainer.innerHTML = '';
+        scanStatusEl.className = 'success';
+        scanStatusEl.textContent = '✓ Added to your collection!';
     }
 }
 
-function displayUnknownProduct(barcode) {
-    document.getElementById('product-name').textContent = 'Product Not Found';
-    document.getElementById('product-brand').textContent = 'This barcode is not in our database';
-    document.getElementById('product-barcode').textContent = `Barcode: ${barcode}`;
-    document.getElementById('product-image').className = 'no-image';
-    document.getElementById('product-image').innerHTML = '';
-}
-
+// Reset scanner
 function resetScanner() {
     resultContainer.classList.add('hidden');
     scannerContainer.classList.remove('hidden');
     errorMessage.classList.add('hidden');
     startBtn.style.display = 'block';
-    startBtn.textContent = 'Start Scanner';
+    startBtn.textContent = 'Start Scanning';
     startBtn.disabled = false;
 }
 
+// Show error
 function showError(message) {
     errorMessage.innerHTML = message.replace(/\n/g, '<br>');
     errorMessage.classList.remove('hidden');

@@ -1,67 +1,86 @@
-# Barcode Scanner Web App
+# 🎯 Product Hunt - Multiplayer Barcode Game
 
-A mobile-friendly web app that scans barcodes and identifies products using your iPhone camera.
+Race against friends to scan 3 different products first! A real-time multiplayer game using your phone's camera.
 
-## Features
+## 🎮 How to Play
 
-- Scan EAN, UPC, Code 128, Code 39, and QR codes
-- Product lookup via Open Food Facts and UPCitemdb APIs
-- Works on iPhone Safari (iOS 14+)
-- No app store installation required
-- Clean, simple interface
+1. **Join the game** - Enter your name
+2. **Start scanning** - Use your phone camera to scan product barcodes
+3. **Collect 3 products** - Each barcode must be unique
+4. **First to 3 wins!** - Watch the live leaderboard
 
-## How to Use
+## 🚀 Quick Start
 
-### Option 1: Open Directly (Simplest)
-1. Open `index.html` in Safari on your iPhone
-2. Allow camera access when prompted
-3. Tap "Start Scanner"
-4. Point camera at a barcode
-5. Product info appears automatically
+### 1. Set up Firebase (Required for Multiplayer)
 
-### Option 2: Serve Locally (Better camera support)
-1. In this folder, run:
-   ```bash
-   python3 -m http.server 8000
-   ```
-2. On your iPhone, go to Safari
-3. Navigate to: `http://[your-computer-ip]:8000`
-4. Follow steps 2-5 above
+See **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)** for detailed instructions.
 
-### Option 3: Deploy to Web
-Upload to any web hosting (Netlify, Vercel, GitHub Pages) for permanent URL.
+**Quick version:**
+- Go to https://console.firebase.google.com/
+- Create project > Enable Realtime Database (test mode)
+- Copy config to `app.js`
 
-## Camera Access
+### 2. Deploy to Netlify
 
-On first use, Safari will ask for camera permission. You must allow this for the scanner to work.
+1. Go to https://app.netlify.com/drop
+2. Drag the `barcode_scanner` folder
+3. Share the URL with friends!
 
-## Supported Barcodes
+### 3. Play!
 
-- EAN-13 (most common in Europe)
-- EAN-8
-- UPC-A (most common in US)
-- UPC-E
-- Code 128
-- Code 39
+- Open the URL on iPhones
+- Everyone enters their name
+- Start scanning products
+- First to 3 wins
+
+## ✨ Features
+
+- **Real-time multiplayer** - See everyone's progress live
+- **Works on iPhone** - Uses Safari camera API
+- **No app install** - Just a web URL
+- **Product recognition** - Shows product names and images
+- **Live leaderboard** - Know who's winning
+
+## 📱 Supported Barcodes
+
+- EAN-13, EAN-8 (European products)
+- UPC-A, UPC-E (US products)
+- Code 128, Code 39
 - QR codes
 
-## Product Databases
-
-- **Open Food Facts**: Free, extensive food product database
-- **UPCitemdb**: Fallback for non-food items (limited in trial mode)
-
-## Troubleshooting
+## 🔧 Troubleshooting
 
 **Camera won't start:**
-- Check Safari Settings > [This Site] > Camera = Allow
-- Try refreshing the page
-- Make sure you're using HTTPS or localhost
+- Make sure you're using HTTPS (Netlify provides this)
+- Safari Settings > Camera = "Ask"
+- Allow camera access when prompted
+
+**Players not syncing:**
+- Check Firebase is set up correctly
+- Make sure all players use the same URL
+- Check browser console for errors
 
 **Product not found:**
-- Some barcodes aren't in public databases
-- Try scanning a common food product to test
+- Not all barcodes are in public databases
+- Try common grocery items (Coca-Cola, cereals, etc.)
 
-**Scanner is slow:**
-- Good lighting helps
-- Hold steady and get barcode in focus
-- Works best with standard product barcodes
+## 🎯 Game Tips
+
+- **Scan unique products** - Duplicates don't count
+- **Scan quickly** - Others are racing too
+- **Use good lighting** - Helps camera focus
+- **Steady hands** - Keep barcode centered
+
+## 🛠 Tech Stack
+
+- HTML5 QR Code library for scanning
+- Firebase Realtime Database for multiplayer
+- Open Food Facts API for product data
+- Netlify for hosting
+
+## 📝 Future Ideas
+
+- Different game modes (time limits, team play)
+- Achievements and badges
+- Product categories challenges
+- Leaderboard history
